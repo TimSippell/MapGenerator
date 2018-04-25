@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <title>Map Viewer</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js"></script>
+  <script src="./js/TrackballControls.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="webgl"></div>
+</body>
+
+</html>
+
+<script>
+  //Gets windows size for rendering//
+  var width = window.innerWidth,
+    height = window.innerHeight;
+
+  //used to handle time-based events//
+  var clock = new THREE.Clock();
+
+  //initialize the render scene//
+  var scene = new THREE.Scene();
+
+  //draw xyz axes for a base reference//
+  var axes = new THREE.AxisHelper(200);
+  //scene.add(axes);
+
+  //create camera with which to view scene//
+  var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 0);
+
+  //adds 'sun' to world//
+  var light = new THREE.PointLight(0xffffff, 1, 0);
+  light.position.set(0, 0, 100);
+
+  //add rendering engine for scene//
+  var renderer = new THREE.WebGLRenderer();
+  renderer.setSize(width, height);
+
+  //Ground Mesh Creator//
+  //This takes 1D array named terrain, and generates a ground mesh using the indecies as z coords.//
+  var groundGeometry = new THREE.PlaneGeometry((size - 1) * 4, (size - 1) * 4, size - 1, size - 1);
+
+  for (var i = 0, l = groundGeometry.vertices.length; i < l; i++) {
+    groundGeometry.vertices[i].z = terrain[i];
+  }
+  groundGeometry.computeFaceNormals();
+  groundGeometry.computeVertexNormals();
+
+  var groundMaterial = new THREE.MeshPhongMaterial({
+    transparent: false,
+    color: 0xffffff,
+    vertexColors: THREE.FaceColors,
+    wireframe: false
+  });
+
+  //Set color of face based on average z//
+  //Change values in MCColor such as % of avg height or color vaules to edit appearance//
+  var height = 0;
+  var avgHeight = 0;
+  var color = (0x000000);
+  for (var i = 0, l = groundGeometry.faces.length; i < l; i++) {
+    height = 0;
+    height += getVertexZ(groundGeometry, groundGeometry.faces[i].a);
+    height += getVertexZ(groundGeometry, groundGeometry.faces[i].b);
+    height += getVertexZ(groundGeometry, groundGeometry.faces[i].c);
+    avgHeight += height / 3;
+    color = MCColor(height / 3);
+    groundGeometry.faces[i].color.setRGB(color[0] / 255, color[1] / 255, color[2] / 255); //RGB is 0-1 in threejs//
+  };
+  avgHeight = avgHeight / groundGeometry.faces.length * 5;
+
+  //Sets camera position to view, more or less, the whole map based on average height//
+  //WIP, will need modification for release//
+  camera.position.set(0, -avgHeight, avgHeight);
+
+  //Create plane from geometry and tell renderer to recompute colors of faces//
+  var groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+  groundPlane.geometry.colorsNeedUpdate = true;
+
+  //create controls//
+  var controls = new THREE.TrackballControls(camera);
+
+  //Grab DOM element and attach renderer//
+  document.getElementById('webgl').appendChild(renderer.domElement);
+
+  //Add lights and ground to scene//
+  scene.add(light);
+  scene.add(groundPlane);
+
+  //tell renderer to start//
+  render();
+
+  //check for window resize and force redraw//
+  window.addEventListener('resize', onWindowResize, false);
+
+  function render() {
+
+    var delta = clock.getDelta(),
+      time = clock.getElapsedTime() * 10;
+
+    requestAnimationFrame(render);
+    renderer.render(scene, camera);
+
+  };
+
+  function onWindowResize() {
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    controls.handleResize();
+
+  };
+
+  function getVertexZ(map, index) {
+    return map.vertices[index].z;
+  };
+
+  function MCColor(num) {
+    var array = new Array(3);
+    if (num <= 0.4 * size) {
+      array[0] = 0;
+      array[1] = 121;
+      array[2] = 150;
+    } else if (num <= 0.5 * size) {
+      array[0] = 0;
+      array[1] = 194;
+      array[2] = 244;
+    } else if (num <= 0.6 * size) {
+      array[0] = 224;
+      array[1] = 220;
+      array[2] = 181;
+    } else if (num <= 0.8 * size) {
+      array[0] = 102;
+      array[1] = 141;
+      array[2] = 60;
+    } else if (num <= 0.9 * size) {
+      array[0] = 134;
+      array[1] = 120;
+      array[2] = 81;
+    } else if (num > 0.9 * size) {
+      array[0] = 255;
+      array[1] = 255;
+      array[2] = 255;
+    }
+    return array;
+  };
+
+</script>
